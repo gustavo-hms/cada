@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from datetime import datetime
+import subprocess
 import time
 import trio
 from tabulate import tabulate
@@ -50,7 +52,18 @@ async def main():
     fastest = { group : min(item) for group, item in stats.items() }
     table = [ line(item, fastest[group]) for group, items in stats.items() for item in items ]
 
-    print(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github"))
+    date = datetime.now()
+    branch = subprocess.run(["git", "branch"], capture_output=True).stdout.decode('utf-8')[2:-1]
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
+
+    f = open("benchmarks/{} {} {}.md".format(date, branch, commit[:7]), "w")
+    f.write("---\n")
+    f.write("Data: {}\n".format(date))
+    f.write("Ramo: {}\n".format(branch))
+    f.write("Commit: {}\n".format(commit))
+    f.write("...\n\n")
+    f.write(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github"))
+    f.close()
 
 def error(mean, durations):
     deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
