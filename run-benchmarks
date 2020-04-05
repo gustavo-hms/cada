@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+
+import time
+import trio
+
+FILES = ["ipairs-imperative.lua", "ipairs-cada.lua"]
+
+async def exec_file(name, channel):
+    async with channel:
+        start = time.perf_counter()
+        info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
+        duration = time.perf_counter() - start
+        await channel.send((info.returncode, name, duration))
+
+async def main():
+    stats = {}
+
+    async with trio.open_nursery() as nursery:
+        send, receive = trio.open_memory_channel(0)
+        async with send:
+            for name in FILES:
+                nursery.start_soon(exec_file, name, send.clone())
+
+        async with receive:
+            async for message in receive:
+                code, name, duration = message
+                if code != 0:
+                    print("O programa {} rodou com erro {}".format(name, code))
+                    exit(code)
+
+                stats[name] = duration
+
+trio.run(main)
