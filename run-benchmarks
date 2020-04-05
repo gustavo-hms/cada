@@ -12,6 +12,7 @@ FILES = [
     "ipairs-luaiter.lua",
     "ipairs-itertools.lua",
     "ipairs-genny.lua",
+
     "1adapter-imperative.lua",
     "1adapter-imperative-lambda.lua",
     "1adapter-cada.lua",
@@ -19,6 +20,14 @@ FILES = [
     "1adapter-genny.lua",
     "1adapter-itertools.lua",
     "1adapter-luaiter.lua",
+
+    "2adapters-cada.lua",
+    "2adapters-cada-methods.lua",
+    "2adapters-genny.lua",
+    "2adapters-imperative.lua",
+    "2adapters-imperative-lambda.lua",
+    "2adapters-itertools.lua",
+    "2adapters-luaiter.lua",
 ]
 
 ITERATIONS = 20
