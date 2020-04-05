@@ -15,16 +15,13 @@ async def exec_file(name, channel):
     durations = []
 
     async with channel:
-        for i in range(1, ITERATIONS):
+        for _ in range(1, ITERATIONS):
             start = time.perf_counter()
             info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
             duration = time.perf_counter() - start
             durations.append(duration)
-            mean = sum(durations)/ITERATIONS
-            deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
-            error = deviation/(ITERATIONS**0.5)
             
-        await channel.send((info.returncode, name, mean, error))
+        await channel.send((info.returncode, name, durations))
 
 
 async def main():
@@ -39,25 +36,39 @@ async def main():
 
         async with receive:
             async for message in receive:
-                code, name, duration, error = message
+                code, name, durations = message
                 if code != 0:
                     print("O programa {} rodou com erro {}".format(name, code))
                     exit(code)
 
+                mean = sum(durations)/ITERATIONS
                 prefix = name.split("-", maxsplit=1)[0]
                 group = stats.get(prefix, [])
-                group.append( (duration, error, name) )
+                group.append( (mean, durations, name) )
                 stats[prefix] = group
 
-    fastest = { group : min(item)[0] for group, item in stats.items() }
+    fastest = { group : min(item) for group, item in stats.items() }
     table = [ line(item, fastest[group]) for group, items in stats.items() for item in items ]
 
     print(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github"))
 
+def error(mean, durations):
+    deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
+    return deviation/(ITERATIONS**0.5)
 
-def line(file_info, minimum):
-    duration, error, name = file_info
-    return [name, "{:.4f} ± {:.4f}".format(duration, error), duration/minimum]
+def line(file_info, fastest):
+    mean, durations, name = file_info
+    _, fdurations, _ = fastest
+
+    ratios = [ dur/fdur for dur, fdur in zip(durations, fdurations) ]
+    ratios_mean = sum(ratios)/ITERATIONS
+    
+    pattern = "{:.4f} ± {:.4f}"
+    return [
+        name,
+        pattern.format(mean, error(mean, durations)),
+        pattern.format(ratios_mean, error(ratios_mean, fdurations))
+    ]
 
 
 trio.run(main)
