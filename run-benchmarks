@@ -53,6 +53,7 @@ async def main():
                     print("O programa {} rodou com erro {}".format(name, code))
                     exit(code)
 
+                print("Teste {} concluído".format(name))
                 mean = sum(durations)/ITERATIONS
                 prefix = name.split("-", maxsplit=1)[0]
                 group = stats.get(prefix, [])

@@ -1,6 +1,6 @@
 local luaiter = require "iter"
 
-local N = 100000
+local N = 300000
 
 local input = {}
 for i = 1,N do
