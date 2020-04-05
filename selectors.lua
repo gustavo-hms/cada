@@ -45,4 +45,11 @@ function expose(env)
 	env._0 = _0
 end
 
+function lift(fn)
+	return function(sel)
+		local call = function(...) return fn(sel.call(...)) end
+		return global.setmetatable({ call = call }, prototype)
+	end
+end
+
 return _ENV
