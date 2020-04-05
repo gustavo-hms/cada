@@ -8,7 +8,17 @@ from tabulate import tabulate
 
 FILES = [
     "ipairs-imperative.lua",
-    "ipairs-cada.lua"
+    "ipairs-cada.lua",
+    "ipairs-luaiter.lua",
+    "ipairs-itertools.lua",
+    "ipairs-genny.lua",
+    "1adapter-imperative.lua",
+    "1adapter-imperative-lambda.lua",
+    "1adapter-cada.lua",
+    "1adapter-cada-methods.lua",
+    "1adapter-genny.lua",
+    "1adapter-itertools.lua",
+    "1adapter-luaiter.lua",
 ]
 
 ITERATIONS = 20
