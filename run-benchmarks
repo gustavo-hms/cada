@@ -15,7 +15,7 @@ async def exec_file(name, channel):
     durations = []
 
     async with channel:
-        for _ in range(1, ITERATIONS):
+        for _ in range(0, ITERATIONS):
             start = time.perf_counter()
             info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
             duration = time.perf_counter() - start
@@ -67,7 +67,7 @@ def line(file_info, fastest):
     return [
         name,
         pattern.format(mean, error(mean, durations)),
-        pattern.format(ratios_mean, error(ratios_mean, fdurations))
+        pattern.format(ratios_mean, error(ratios_mean, ratios))
     ]
 
 
