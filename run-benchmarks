@@ -4,44 +4,60 @@ import time
 import trio
 from tabulate import tabulate
 
-FILES = ["ipairs-imperative.lua", "ipairs-cada.lua"]
+FILES = [
+    "ipairs-imperative.lua",
+    "ipairs-cada.lua"
+]
+
+ITERATIONS = 20
 
 async def exec_file(name, channel):
+    durations = []
+
     async with channel:
-        start = time.perf_counter()
-        info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
-        duration = time.perf_counter() - start
-        await channel.send((info.returncode, name, duration))
+        for i in range(1, ITERATIONS):
+            start = time.perf_counter()
+            info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
+            duration = time.perf_counter() - start
+            durations.append(duration)
+            mean = sum(durations)/ITERATIONS
+            deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
+            error = deviation/(ITERATIONS**0.5)
+            
+        await channel.send((info.returncode, name, mean, error))
+
 
 async def main():
     stats = {}
 
     async with trio.open_nursery() as nursery:
         send, receive = trio.open_memory_channel(0)
+
         async with send:
             for name in FILES:
                 nursery.start_soon(exec_file, name, send.clone())
 
         async with receive:
             async for message in receive:
-                code, name, duration = message
+                code, name, duration, error = message
                 if code != 0:
                     print("O programa {} rodou com erro {}".format(name, code))
                     exit(code)
 
                 prefix = name.split("-", maxsplit=1)[0]
                 group = stats.get(prefix, [])
-                group.append( (name, duration) )
+                group.append( (duration, error, name) )
                 stats[prefix] = group
 
+    fastest = { group : min(item)[0] for group, item in stats.items() }
+    table = [ line(item, fastest[group]) for group, items in stats.items() for item in items ]
 
-    fastest = { group:min(item, key=lambda t: t[1])[1] for (group, item) in stats.items() }
-    table = [ line(item, fastest[group]) for (group, items) in stats.items() for item in items ]
+    print(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github"))
 
-    print(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="simple"))
 
 def line(file_info, minimum):
-    name, duration = file_info
-    return [name, duration, duration/minimum]
+    duration, error, name = file_info
+    return [name, "{:.4f} ± {:.4f}".format(duration, error), duration/minimum]
+
 
 trio.run(main)

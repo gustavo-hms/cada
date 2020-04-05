@@ -1,4 +1,4 @@
-local N = 1000000
+local N = 100000
 
 local input = {}
 for i = 1,N do
