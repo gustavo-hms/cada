@@ -2,6 +2,7 @@
 
 import time
 import trio
+from tabulate import tabulate
 
 FILES = ["ipairs-imperative.lua", "ipairs-cada.lua"]
 
@@ -28,6 +29,19 @@ async def main():
                     print("O programa {} rodou com erro {}".format(name, code))
                     exit(code)
 
-                stats[name] = duration
+                prefix = name.split("-", maxsplit=1)[0]
+                group = stats.get(prefix, [])
+                group.append( (name, duration) )
+                stats[prefix] = group
+
+
+    fastest = { group:min(item, key=lambda t: t[1])[1] for (group, item) in stats.items() }
+    table = [ line(item, fastest[group]) for (group, items) in stats.items() for item in items ]
+
+    print(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="simple"))
+
+def line(file_info, minimum):
+    name, duration = file_info
+    return [name, duration, duration/minimum]
 
 trio.run(main)
