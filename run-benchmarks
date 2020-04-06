@@ -6,31 +6,87 @@ import time
 import trio
 from tabulate import tabulate
 
-FILES = [
-    "ipairs-imperative.lua",
-    "ipairs-cada.lua",
-    "ipairs-luaiter.lua",
-    "ipairs-itertools.lua",
-    "ipairs-genny.lua",
 
-    "1adapter-imperative.lua",
-    "1adapter-imperative-lambda.lua",
-    "1adapter-cada.lua",
-    "1adapter-cada-methods.lua",
-    "1adapter-genny.lua",
-    "1adapter-itertools.lua",
-    "1adapter-luaiter.lua",
+FILES = {
+    "# Geradores": [
+        "ipairs-imperative.lua",
+        "ipairs-cada.lua",
+        "ipairs-luaiter.lua",
+        "ipairs-itertools.lua",
+        "ipairs-genny.lua",
+    ],
 
-    "2adapters-cada.lua",
-    "2adapters-cada-methods.lua",
-    "2adapters-genny.lua",
-    "2adapters-imperative.lua",
-    "2adapters-imperative-lambda.lua",
-    "2adapters-itertools.lua",
-    "2adapters-luaiter.lua",
-]
+    "# Um adaptador": [
+        "1adapter-imperative.lua",
+        "1adapter-imperative-lambda.lua",
+        "1adapter-cada.lua",
+        "1adapter-cada-methods.lua",
+        "1adapter-genny.lua",
+        "1adapter-itertools.lua",
+        "1adapter-luaiter.lua",
+    ],
+
+    "# Dois adaptadores": [
+        "2adapters-cada.lua",
+        "2adapters-cada-methods.lua",
+        "2adapters-genny.lua",
+        "2adapters-imperative.lua",
+        "2adapters-imperative-lambda.lua",
+        "2adapters-itertools.lua",
+        "2adapters-luaiter.lua",
+    ]
+}
+
 
 ITERATIONS = 20
+
+
+def line(file_info, fastest):
+    mean, durations, name = file_info
+    _, fdurations, _ = fastest
+
+    ratios = [ dur/fdur for dur, fdur in zip(durations, fdurations) ]
+    ratios_mean = sum(ratios)/ITERATIONS
+    
+    pattern = "{:.4f} ± {:.4f}"
+    return [
+        name,
+        pattern.format(mean, error(mean, durations)),
+        pattern.format(ratios_mean, error(ratios_mean, ratios))
+    ]
+
+
+def error(mean, durations):
+    deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
+    return deviation/(ITERATIONS**0.5)
+
+
+async def exec_group(group):
+    stats = []
+
+    async with trio.open_nursery() as nursery:
+        send, receive = trio.open_memory_channel(0)
+
+        async with send:
+            for name in group:
+                nursery.start_soon(exec_file, name, send.clone())
+
+        async with receive:
+            async for message in receive:
+                code, name, durations = message
+                if code != 0:
+                    print("O programa {} rodou com erro {}".format(name, code))
+                    exit(code)
+
+                print("Teste {} concluído".format(name))
+                mean = sum(durations)/ITERATIONS
+                stats.append( (mean, durations, name) )
+
+    fastest = min(stats)
+    table = [ line(item, fastest) for item in stats ]
+
+    return tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github")
+
 
 async def exec_file(name, channel):
     durations = []
@@ -46,62 +102,27 @@ async def exec_file(name, channel):
 
 
 async def main():
-    stats = {}
+    tables = []
 
-    async with trio.open_nursery() as nursery:
-        send, receive = trio.open_memory_channel(0)
-
-        async with send:
-            for name in FILES:
-                nursery.start_soon(exec_file, name, send.clone())
-
-        async with receive:
-            async for message in receive:
-                code, name, durations = message
-                if code != 0:
-                    print("O programa {} rodou com erro {}".format(name, code))
-                    exit(code)
-
-                print("Teste {} concluído".format(name))
-                mean = sum(durations)/ITERATIONS
-                prefix = name.split("-", maxsplit=1)[0]
-                group = stats.get(prefix, [])
-                group.append( (mean, durations, name) )
-                stats[prefix] = group
-
-    fastest = { group : min(item) for group, item in stats.items() }
-    table = [ line(item, fastest[group]) for group, items in stats.items() for item in items ]
+    for group_name in FILES:
+        table = await exec_group(FILES[group_name])
+        tables.append(( group_name, table ))
 
     date = datetime.now()
     branch = subprocess.run(["git", "branch"], capture_output=True).stdout.decode('utf-8')[2:-1]
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
 
-    f = open("benchmarks/{} {} {}.md".format(date, branch, commit[:7]), "w")
-    f.write("---\n")
-    f.write("Data: {}\n".format(date))
-    f.write("Ramo: {}\n".format(branch))
-    f.write("Commit: {}\n".format(commit))
-    f.write("...\n\n")
-    f.write(tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github"))
-    f.close()
+    with open("benchmarks/{} {} {}.md".format(date, branch, commit[:7]), "w") as f:
+        f.write("---\n")
+        f.write("Data: {}\n".format(date))
+        f.write("Ramo: {}\n".format(branch))
+        f.write("Commit: {}\n".format(commit))
+        f.write("...\n\n")
 
-def error(mean, durations):
-    deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
-    return deviation/(ITERATIONS**0.5)
-
-def line(file_info, fastest):
-    mean, durations, name = file_info
-    _, fdurations, _ = fastest
-
-    ratios = [ dur/fdur for dur, fdur in zip(durations, fdurations) ]
-    ratios_mean = sum(ratios)/ITERATIONS
-    
-    pattern = "{:.4f} ± {:.4f}"
-    return [
-        name,
-        pattern.format(mean, error(mean, durations)),
-        pattern.format(ratios_mean, error(ratios_mean, ratios))
-    ]
+        for table in tables:
+            (header, content) = table
+            f.write(header + "\n\n")
+            f.write(content + "\n\n")
 
 
 trio.run(main)
