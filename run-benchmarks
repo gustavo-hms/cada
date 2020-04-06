@@ -34,6 +34,26 @@ FILES = {
         "2adapters-imperative-lambda.lua",
         "2adapters-itertools.lua",
         "2adapters-luaiter.lua",
+    ],
+
+    "# Três adaptadores": [
+        "3adapters-genny.lua",
+        "3adapters-imperative-lambda.lua",
+        "3adapters-imperative.lua",
+        "3adapters-itertools.lua",
+        "3adapters-cada.lua",
+        "3adapters-cada-methods.lua",
+        "3adapters-luaiter.lua"
+    ],
+
+    "# Três adaptadores, 1 consumidor": [
+        "3adapters-consumer-cada.lua",
+        "3adapters-consumer-cada-methods.lua",
+        "3adapters-consumer-genny.lua",
+        "3adapters-consumer-itertools.lua",
+        "3adapters-consumer-luaiter.lua",
+        "3adapters-consumer-imperative.lua",
+        "3adapters-consumer-imperative-lambda.lua"
     ]
 }
 

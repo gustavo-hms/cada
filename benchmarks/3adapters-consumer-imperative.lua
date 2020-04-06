@@ -8,6 +8,8 @@ end
 local result = {}
 
 for i,v in ipairs(input) do
+    if v >= N then break end
+
 	if v < 4*N/3 then
 		if v%2 == 0 then
 			result[i] = v/2

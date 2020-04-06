@@ -18,7 +18,11 @@ local predicate = function(v)
 	return v < 4*N/3
 end
 
+local predicate2 =  function(v) return v < N end
+
 for i,v in ipairs(input) do
+    if not predicate2(v) then break end
+
 	if predicate(v) then
 		result[i] = fn(v)
 	end

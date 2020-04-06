@@ -24,6 +24,10 @@ function iterator:filter(fn)
 	return filter(fn):transform(self)
 end
 
+function iterator:take_while(fn)
+	return take_while(fn):transform(self)
+end
+
 function iterator:array()
 	return array():transform(self)
 end
@@ -91,6 +95,14 @@ function filter(fn)
 	end)
 end
 
+function take_while(fn)
+	return new_adapter(function(self)
+		local a, b, c, d, e = self.former:next()
+		if not fn(a, b, c, d, e) then return nil end
+		return a, b, c, d, e
+	end)
+end
+
 function second()
 	return new_adapter(function(self)
 		local _, b = self.former:next()
@@ -125,18 +137,6 @@ function array()
 	end)
 
 	return t
-end
-
--- Selectors
-
-local selector = {}
-selector.__index = selector
-
-local second = {}
-second.__index = second
-
-function second.__call(_, b)
-	return b
 end
 
 return _ENV

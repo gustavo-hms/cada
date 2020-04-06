@@ -9,7 +9,8 @@ end
 
 local result = {}
 for i, v in cada.ipairs(input)
-		>> cada.map(function(i, v) return v%2 == 0 and i, v/2 or i, v-1 end)
-		>> cada.filter(function(_, v) return v < 4*N/3 end) do
+		:map(function(i, v) return v%2 == 0 and i, v/2 or i, v-1 end)
+		:filter(function(_, v) return v < 4*N/3 end)
+		:take_while(function(_, v) return v < N end) do
 	result[i] = v
 end
