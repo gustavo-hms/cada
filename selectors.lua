@@ -1,6 +1,6 @@
 local global = _G
 
-local _ENV = _ENV
+local _ENV = {}
 
 local  prototype = { __selector = true };
 prototype.__index = prototype
