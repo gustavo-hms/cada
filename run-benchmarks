@@ -82,7 +82,7 @@ async def exec_group(group):
                 mean = sum(durations)/ITERATIONS
                 stats.append( (mean, durations, name) )
 
-    fastest = min(stats)
+    fastest = stats[0] # The first to finish is always the fastest one
     table = [ line(item, fastest) for item in stats ]
 
     return tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github")
