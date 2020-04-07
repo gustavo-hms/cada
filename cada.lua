@@ -2,141 +2,126 @@ local global = _G
 
 local _ENV = {}
 
-local iterator = { __iterator = true }
-iterator.__index = iterator
+-- Next : (invariant, control) -> (control, ...)
+-- Generator: invariant -> (Next, invariant, control)
+-- Iterator: { next: Next }
+-- Adapter: Next -> Next
 
-local function apply_transformation(self, transformer)
-	return transformer:transform(self)
-end
-
-iterator.__shr = apply_transformation
-iterator.__add = apply_transformation
-
-function iterator:__call()
-	return self:next()
-end
-
-function iterator:map(fn)
-	return map(fn):transform(self)
-end
-
-function iterator:filter(fn)
-	return filter(fn):transform(self)
-end
-
-function iterator:take_while(fn)
-	return take_while(fn):transform(self)
-end
-
-function iterator:array()
-	return array():transform(self)
-end
-
-function new(t) return global.setmetatable(t, iterator) end
-
--- Generators
-
+-- wrap: StandardGenerator -> Generator
 function wrap(generator)
     return function(...)
         local next, invariant, control = generator(...)
-
-        local t = {
-			control = control,
-            next = function(self)
-				local a, b, c, d, e = next(invariant, self.control)
-				if a == nil then return end
-				self.control = a
-                return a, b, c, d, e
-            end
-        }
-
-        return new(t)
+        return iterator(next, invariant, control), invariant, control
     end
 end
 
+local protoiterator = {__iterator = true}
+protoiterator.__index = protoiterator
+
+function protoiterator:__call(invariant, control)
+	return self.next(invariant, control)
+end
+
+function protoiterator:apply(adapter)
+    self.next = adapter(self.next)
+    return self, self.__invariant, self.__control
+end
+
+function protoiterator:map(fn) return self:apply(map(fn)) end
+
+function protoiterator:filter(fn) return self:apply(filter(fn)) end
+
+function protoiterator:arg(n) return self:apply(arg(n)) end
+
+function iterator(next, invariant, control)
+    local t = {
+		next = next,
+		__invariant = invariant,
+		__control = control,
+	}
+
+    return global.setmetatable(t, protoiterator)
+end
+
+-- Generators
+
 ipairs = wrap(global.ipairs)
+
 pairs = wrap(global.pairs)
 
-function sequence(t)
-	return ipairs(t) >> second()
-end
+list = function(t) return ipairs(t):arg(2) end
 
-function values(t)
-	return pairs(t) >> second()
-end
+keys = pairs -- Just ignore the other elements
+
+values = function(t) return pairs(t):arg(2) end
 
 -- Adapters
 
-local adapter = { __adapter = true }
-adapter.__index = adapter
-
-function adapter:transform(iterator)
-	self.former = iterator
-	return new(self)
-end
-
-function new_adapter(next)
-	return global.setmetatable( { next = next }, adapter )
-end
-
+-- map: (a, b, c, d, e -> a', b', c', d', e') -> (Next a b c d e -> Next a' b' c' d' e')
 function map(fn)
-	return new_adapter(function(self)
-		local a, b, c, d, e = self.former:next()
-		if a == nil then return end
-		return fn(a, b, c, d, e)
-	end)
+    return function(next)
+        return function(invariant, control)
+            local a, b, c, d, e = next(invariant, control)
+            if a ~= nil then return fn(a, b, c, d, e) end
+        end
+    end
 end
 
+-- filter: (a, b, c, d, e -> Bool) -> (Next a b c d e -> Next a b c d e)
 function filter(fn)
-	return new_adapter(function(self)
-		for a, b, c, d, e in self.former do
-			if fn(a, b, c, d, e) then return a, b, c, d, e end
-		end
-	end)
+    return function(next)
+        return function(invariant, control)
+            for a, b, c, d, e in next, invariant, control do
+                if fn(a, b, c, d, e) then return a, b, c, d, e end
+            end
+        end
+    end
 end
 
-function take_while(fn)
-	return new_adapter(function(self)
-		local a, b, c, d, e = self.former:next()
-		if not fn(a, b, c, d, e) then return nil end
-		return a, b, c, d, e
-	end)
+-- takewhile: (a, b, c, d, e -> Bool) -> (Next a b c d e -> Next a b c d e)
+function takewhile(fn)
+    return function(next)
+        return function(invariant, control)
+            for a, b, c, d, e in next, invariant, control do
+                if not fn(a, b, c, d, e) then return end
+                return a, b, c, d, e
+            end
+        end
+    end
 end
 
-function second()
-	return new_adapter(function(self)
-		local _, b = self.former:next()
+function arg2(next)
+	return function(invariant, control)
+		local _, b = next(invariant, control)
 		return b
-	end)
+	end
 end
+
+
+function arg(n)
+    return function(next)
+        return function(invariant, control)
+			global.print("control", control)
+            local a, b, c, d, e = next(invariant, control)
+			if a == nil then return end
+
+            if n == 1 then
+                return a
+            elseif n == 2 then
+                return b
+            elseif n == 3 then
+                return c
+            elseif n == 4 then
+                return d
+            elseif n == 5 then
+                return e
+            end
+        end
+    end
+end
+
 
 -- Consumers
 
-local consumer = { __consumer = true }
-consumer.__index = consumer
-
-function consumer:transform(iterator)
-	return self.consume(iterator)
-end
-
-function new_consumer(consume)
-	return global.setmetatable( { consume = consume }, consumer )
-end
-
-function array()
-	local t = new_consumer(function(iterator)
-		local t = {}
-		local i = 1
-
-		for value in iterator do
-			t[i] = value
-			i = i + 1
-		end
-
-		return t
-	end)
-
-	return t
-end
 
 return _ENV
