@@ -8,6 +8,6 @@ for i = 1,N do
 end
 
 local result = {}
-for i, v in cada.ipairs(input) >> cada.map(function(i, v) return v%2 == 0 and i, v/2 or i, v-1 end) do
+for i, v in cada.list(input):map(function(v) return v%2 == 0 and v/2 or v-1 end) do
 	result[i] = v
 end

@@ -20,7 +20,6 @@ FILES = {
         "1adapter-imperative.lua",
         "1adapter-imperative-lambda.lua",
         "1adapter-cada.lua",
-        "1adapter-cada-methods.lua",
         "1adapter-genny.lua",
         "1adapter-itertools.lua",
         "1adapter-luaiter.lua",
@@ -28,7 +27,6 @@ FILES = {
 
     "# Dois adaptadores": [
         "2adapters-cada.lua",
-        "2adapters-cada-methods.lua",
         "2adapters-genny.lua",
         "2adapters-imperative.lua",
         "2adapters-imperative-lambda.lua",
@@ -42,13 +40,11 @@ FILES = {
         "3adapters-imperative.lua",
         "3adapters-itertools.lua",
         "3adapters-cada.lua",
-        "3adapters-cada-methods.lua",
         "3adapters-luaiter.lua"
     ],
 
     "# Três adaptadores, 1 consumidor": [
         "3adapters-consumer-cada.lua",
-        "3adapters-consumer-cada-methods.lua",
         "3adapters-consumer-genny.lua",
         "3adapters-consumer-itertools.lua",
         "3adapters-consumer-luaiter.lua",
@@ -129,7 +125,7 @@ async def main():
         tables.append(( group_name, table ))
 
     date = datetime.now()
-    branch = subprocess.run(["git", "branch"], capture_output=True).stdout.decode('utf-8')[2:-1]
+    branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
 
     with open("benchmarks/{} {} {}.md".format(date, branch, commit[:7]), "w") as f:
