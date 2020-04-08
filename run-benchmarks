@@ -68,7 +68,8 @@ async def main():
     branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True).stdout.decode('utf-8')[:-1]
 
-    with open("benchmarks/{} {} {}.md".format(date, branch, commit[:7]), "w") as f:
+    file_name = "benchmarks/{}_{}_{}.md".format(date.strftime("%Y-%m-%d_%H:%M:%S"), branch, commit[:7])
+    with open(file_name, "w") as f:
         f.write("---\n")
         f.write("Data: {}\n".format(date))
         f.write("Ramo: {}\n".format(branch))
@@ -98,16 +99,19 @@ async def exec_group(group):
 async def exec_file(name):
     durations = []
 
-    async with trio.open_nursery() as nursery:
-        send, receive = trio.open_memory_channel(0)
+    for _ in range(0, ITERATIONS//4):
+        async with trio.open_nursery() as nursery:
+            send, receive = trio.open_memory_channel(0)
 
-        async with send:
-            for _ in range(0, ITERATIONS):
-                nursery.start_soon(exec_once, name, send.clone())
+            async with send:
+                    nursery.start_soon(exec_once, name, send.clone())
+                    nursery.start_soon(exec_once, name, send.clone())
+                    nursery.start_soon(exec_once, name, send.clone())
+                    nursery.start_soon(exec_once, name, send.clone())
 
-        async with receive:
-            async for duration in receive:
-                durations.append(duration)
+            async with receive:
+                async for duration in receive:
+                    durations.append(duration)
 
     print("Teste {} concluído".format(name))
     mean = sum(durations)/ITERATIONS
