@@ -7,7 +7,7 @@ local _ENV = {}
 -- Iterator: { next: Next }
 -- Adapter: Next -> Next
 
-local protoiterator = {__iterator = true}
+local protoiterator = {}
 protoiterator.__index = protoiterator
 
 function protoiterator:__call(invariant, control)
@@ -29,32 +29,25 @@ function protoiterator:filter(fn) return self:apply(filter(fn)) end
 
 function protoiterator:takewhile(fn) return self:apply(takewhile(fn)) end
 
-function protoiterator:arg(n) return self:apply(arg(n)) end
-
 function protoiterator:tolist() return self:consume(tolist) end
 
-function iterator(next, invariant, control)
+function iterator(next, invariant, initial)
     local t = {
 		next = next,
-		iter = function(self)
-			local invariant, control = invariant, control
-			return self, invariant, control
-		end
+		iter = function(self) return self, invariant, initial end
 	}
 
     return global.setmetatable(t, protoiterator)
 end
 
-local function standard_iterator(next, invariant, control)
-	local next_with_double_control = function(invariant_, control_)
-		local control_, a, b, c, d = next(invariant_, control_)
-		return control_, control_, a, b, c, d
-	end
-
+local function standard_iterator(next, invariant, initial)
     local t = {
-		next = next_with_double_control,
-		__invariant = invariant,
-		__control = control,
+		next = function(invariant_, control)
+			local control_, a, b, c, d = next(invariant_, control)
+			return control_, control_, a, b, c, d
+		end,
+
+		iter = function(self) return self, invariant, initial end
 	}
 
     return global.setmetatable(t, protoiterator)
@@ -63,8 +56,7 @@ end
 -- wrap: StandardGenerator -> Generator
 function wrap(generator)
     return function(...)
-        local next, invariant, control = generator(...)
-        return standard_iterator(next, invariant, control), invariant, control
+        return standard_iterator(generator(...)):iter()
     end
 end
 
@@ -75,13 +67,11 @@ ipairs = wrap(global.ipairs)
 pairs = wrap(global.pairs)
 
 list = function(t)
-	local next, invariant, control = global.ipairs(t)
-	return iterator(next, invariant, control), invariant, control
+	return iterator(global.ipairs(t)):iter()
 end
 
 keys = pairs -- Just ignore the other elements
 
-values = function(t) return pairs(t):arg(2) end
 
 -- Adapters
 
@@ -113,36 +103,6 @@ function takewhile(fn)
             for a, b, c, d, e in next, invariant, control do
                 if not fn(b, c, d, e) then return end
                 return a, b, c, d, e
-            end
-        end
-    end
-end
-
-function arg2(next)
-	return function(invariant, control)
-		local _, b = next(invariant, control)
-		return b
-	end
-end
-
-
-function arg(n)
-    return function(next)
-        return function(invariant, control)
-			global.print("control", control)
-            local a, b, c, d, e = next(invariant, control)
-			if a == nil then return end
-
-            if n == 1 then
-                return a
-            elseif n == 2 then
-                return b
-            elseif n == 3 then
-                return c
-            elseif n == 4 then
-                return d
-            elseif n == 5 then
-                return e
             end
         end
     end
