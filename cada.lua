@@ -16,7 +16,7 @@ end
 
 function protoiterator:apply(adapter)
     self.next = adapter(self.next)
-    return self, self.__invariant, self.__control
+    return self:iter()
 end
 
 function protoiterator:consume(consumer)
@@ -36,8 +36,10 @@ function protoiterator:tolist() return self:consume(tolist) end
 function iterator(next, invariant, control)
     local t = {
 		next = next,
-		__invariant = invariant,
-		__control = control,
+		iter = function(self)
+			local invariant, control = invariant, control
+			return self, invariant, control
+		end
 	}
 
     return global.setmetatable(t, protoiterator)
@@ -153,7 +155,7 @@ function tolist(iterator)
 	local list = {}
 	local i = 1
 
-	for _, v in iterator, iterator.__invariant, iterator.__control do
+	for _, v in iterator:iter() do
 		list[i] = v
 		i = i + 1
 	end
