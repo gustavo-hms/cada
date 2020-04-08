@@ -22,7 +22,7 @@ describe("The #wrap function", function()
 		local original = random_numbers()
 		local result = {}
 
-		for _, i,v in cada.wrap(ipairs)(original) do
+		for _, i,v in cada.wrap(ipairs)(original):iter2() do
 			result[i] = v
 		end
 
@@ -33,7 +33,7 @@ describe("The #wrap function", function()
 		local original = random_numbers()
 		local result = {}
 
-		for _, i,v in cada.ipairs(original) do
+		for _, i,v in cada.ipairs(original):iter2() do
 			result[i] = v
 		end
 
@@ -49,7 +49,7 @@ describe("The #wrap function", function()
 		end
 
 		local result = {}
-		for _, i,v in cada.pairs(original) do
+		for _, i,v in cada.pairs(original):iter2() do
 			result[i] = v
 		end
 
@@ -62,7 +62,7 @@ describe("The #list function", function()
 		local original = random_numbers()
 		local result = {}
 
-		for i, v in cada.list(original) do
+		for i, v in cada.list(original):iter2() do
 			result[i] = v
 		end
 
