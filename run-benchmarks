@@ -26,95 +26,35 @@ FILES = {
     ],
 
     "# Dois adaptadores": [
-        "2adapters-cada.lua",
-        "2adapters-genny.lua",
         "2adapters-imperative.lua",
         "2adapters-imperative-lambda.lua",
+        "2adapters-cada.lua",
+        "2adapters-genny.lua",
         "2adapters-itertools.lua",
         "2adapters-luaiter.lua",
     ],
 
     "# Três adaptadores": [
-        "3adapters-genny.lua",
         "3adapters-imperative-lambda.lua",
         "3adapters-imperative.lua",
-        "3adapters-itertools.lua",
         "3adapters-cada.lua",
+        "3adapters-genny.lua",
+        "3adapters-itertools.lua",
         "3adapters-luaiter.lua"
     ],
 
     "# Três adaptadores, 1 consumidor": [
+        "3adapters-consumer-imperative.lua",
+        "3adapters-consumer-imperative-lambda.lua",
         "3adapters-consumer-cada.lua",
         "3adapters-consumer-genny.lua",
         "3adapters-consumer-itertools.lua",
-        "3adapters-consumer-luaiter.lua",
-        "3adapters-consumer-imperative.lua",
-        "3adapters-consumer-imperative-lambda.lua"
+        "3adapters-consumer-luaiter.lua"
     ]
 }
 
 
 ITERATIONS = 20
-
-
-def line(file_info, fastest):
-    mean, durations, name = file_info
-    _, fdurations, _ = fastest
-
-    ratios = [ dur/fdur for dur, fdur in zip(durations, fdurations) ]
-    ratios_mean = sum(ratios)/ITERATIONS
-    
-    pattern = "{:.4f} ± {:.4f}"
-    return [
-        name,
-        pattern.format(mean, error(mean, durations)),
-        pattern.format(ratios_mean, error(ratios_mean, ratios))
-    ]
-
-
-def error(mean, durations):
-    deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
-    return deviation/(ITERATIONS**0.5)
-
-
-async def exec_group(group):
-    stats = []
-
-    async with trio.open_nursery() as nursery:
-        send, receive = trio.open_memory_channel(0)
-
-        async with send:
-            for name in group:
-                nursery.start_soon(exec_file, name, send.clone())
-
-        async with receive:
-            async for message in receive:
-                code, name, durations = message
-                if code != 0:
-                    print("O programa {} rodou com erro {}".format(name, code))
-                    exit(code)
-
-                print("Teste {} concluído".format(name))
-                mean = sum(durations)/ITERATIONS
-                stats.append( (mean, durations, name) )
-
-    fastest = stats[0] # The first to finish is always the fastest one
-    table = [ line(item, fastest) for item in stats ]
-
-    return tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github")
-
-
-async def exec_file(name, channel):
-    durations = []
-
-    async with channel:
-        for _ in range(0, ITERATIONS):
-            start = time.perf_counter()
-            info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
-            duration = time.perf_counter() - start
-            durations.append(duration)
-            
-        await channel.send((info.returncode, name, durations))
 
 
 async def main():
@@ -139,6 +79,72 @@ async def main():
             (header, content) = table
             f.write(header + "\n\n")
             f.write(content + "\n\n")
+
+
+async def exec_group(group):
+    stats = []
+
+    for name in group:
+        results = await exec_file(name)
+        stats.append(results)
+
+    stats.sort()
+    fastest = stats[0]
+    table = [ line(item, fastest) for item in stats ]
+
+    return tabulate(table, headers = ["Programa", "Duração (s)", "Relação"], tablefmt="github")
+
+
+async def exec_file(name):
+    durations = []
+
+    async with trio.open_nursery() as nursery:
+        send, receive = trio.open_memory_channel(0)
+
+        async with send:
+            for _ in range(0, ITERATIONS):
+                nursery.start_soon(exec_once, name, send.clone())
+
+        async with receive:
+            async for duration in receive:
+                durations.append(duration)
+
+    print("Teste {} concluído".format(name))
+    mean = sum(durations)/ITERATIONS
+    return (mean, durations, name)
+
+
+async def exec_once(name, channel):
+    async with channel:
+        start = time.perf_counter()
+        info = await trio.run_process(["lua", "benchmarks/{}".format(name)], check = False)
+        duration = time.perf_counter() - start
+
+        if info.returncode != 0:
+            print("O programa {} rodou com erro {}".format(name, info.returncode))
+            exit(info.returncode)
+
+        await channel.send(duration)
+
+
+def line(file_info, fastest):
+    mean, durations, name = file_info
+    _, fdurations, _ = fastest
+
+    ratios = [ dur/fdur for dur, fdur in zip(durations, fdurations) ]
+    ratios_mean = sum(ratios)/ITERATIONS
+    
+    pattern = "{:.4f} ± {:.4f}"
+    return [
+        name,
+        pattern.format(mean, error(mean, durations)),
+        pattern.format(ratios_mean, error(ratios_mean, ratios))
+    ]
+
+
+def error(mean, durations):
+    deviation = (sum([(dur - mean)**2 for dur in durations])/ITERATIONS)**0.5
+    return deviation/(ITERATIONS**0.5)
 
 
 trio.run(main)
