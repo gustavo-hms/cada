@@ -34,7 +34,8 @@ function protoiterator:tolist() return self:consume(tolist) end
 function iterator(next, invariant, initial)
     local t = {
 		next = next,
-		iter = function(self) return self, invariant, initial end
+		iter = function(self) return self, invariant, initial end,
+		iter2 = function(self) return self.next, invariant, initial end
 	}
 
     return global.setmetatable(t, protoiterator)
@@ -47,7 +48,9 @@ local function standard_iterator(next, invariant, initial)
 			return control_, control_, a, b, c, d
 		end,
 
-		iter = function(self) return self, invariant, initial end
+		iter = function(self) return self, invariant, initial end,
+		
+		iter2 = function(self) return self.next, invariant, initial end
 	}
 
     return global.setmetatable(t, protoiterator)
@@ -115,7 +118,7 @@ function tolist(iterator)
 	local list = {}
 	local i = 1
 
-	for _, v in iterator:iter() do
+	for _, v in iterator:iter2() do
 		list[i] = v
 		i = i + 1
 	end
