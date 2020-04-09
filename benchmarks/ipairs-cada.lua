@@ -8,6 +8,6 @@ for i = 1,N do
 end
 
 local result = {}
-for i, v in cada.list(input):iter2() do
+for i, v in cada.ipairs(input) do
 	result[i] = v
 end

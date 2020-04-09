@@ -1,6 +1,6 @@
 local global = _G
 
-local _ENV = _ENV
+local _ENV = {}
 
 skip = {}
 
@@ -18,7 +18,7 @@ function protoproducer:__call()
 end
 
 function protoproducer:apply(adapter)
-    self.adapters[#self.adapters+1] = adapter
+	self.adapters[#self.adapters+1] = adapter
     return self
 end
 
@@ -41,31 +41,29 @@ function protoproducer:tolist() return self:consume(tolist) end
 local cowrap = global.coroutine.wrap
 local yield = global.coroutine.yield
 
-local iterate = function(iterator)
-	local adapters = iterator.adapters
-
-	for a, b, c, d, e in iterator:iter() do
-		for _, adapter in ipairs(adapters) do
-			a, b, c, d, e = adapter(a, b, c, d, e)
-
-			if a == nil then return end
-			if a == skip then break end
-		end
-
-		if a ~= skip then
-			yield(a, b, c, d, e)
-		end
-	end
-end
-
 local function producer(next, invariant, initial)
 	local iterable = {
 		adapters = {},
-		iter = function() return next, invariant, initial end,
-		next = cowrap(iterate),
 	}
 
-	return setmetatable(iterable, protoproducer)
+	iterable.next = cowrap(function(self)
+		local adapters = self.adapters
+		local number = #adapters
+
+		for a, b, c, d, e in next, invariant, initial do
+			for i = 1,number do
+				a, b, c, d, e = adapters[i](a, b, c, d, e)
+				if a == nil then return end
+				if a == skip then break end
+			end
+
+			if a ~= skip then
+				yield(a, b, c, d, e)
+			end
+		end
+	end)
+
+	return global.setmetatable(iterable, protoproducer), invariant, initial
 end
 
 function wrap(standard_producer)
@@ -74,9 +72,9 @@ function wrap(standard_producer)
 	end
 end
 
-ipairs = wrap(ipairs)
+ipairs = wrap(global.ipairs)
 
-pairs = wrap(pairs)
+pairs = wrap(global.pairs)
 
 list = function(t)
 	return producer(ipairs(t)):map(function(_, v) return v end)
